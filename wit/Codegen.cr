@@ -363,23 +363,22 @@ module Wit
       def assign(tgt, expr)
         info = tgt.info as X64VarInfo
         szstr = self.getszstr info.size
-        # XXX: Is `out` really needed here?
-        out, item = if info.global
-          {info.label, Parser::MemItem.new info.label, "1", "0", tgt.typ}
+        item = if info.global
+          Parser::MemItem.new info.label, "1", "0", tgt.typ
         else
-          {"rbp-#{info.offs}", Parser::MemItem.new "rbp", "1", "-#{info.offs}",
-            tgt.typ}
+          Parser::MemItem.new "rbp", "1", "-#{info.offs}", tgt.typ
         end
+        out = self.itemstr item
         itemstr = self.itemstr expr
         if expr.is_a? Parser::MemItem
           self.regblock do |reg|
             # x64 doesn't allow moving memory to memory.
             regsz = reg.regsz info.size
             self.emittb "mov #{regsz}, #{itemstr}"
-            self.emittb "mov [#{out}], #{regsz}"
+            self.emittb "mov #{out}, #{regsz}"
           end
         else
-          self.emittb "mov #{szstr} [#{out}], #{itemstr}"
+          self.emittb "mov #{szstr} #{out}, #{itemstr}"
         end
         self.ofree expr
         item
