@@ -324,9 +324,8 @@ module Wit
           self.emittb "mov #{reg.regsz dstsz}, #{self.itemstr item}"
           Parser::RegItem.new reg, dstsz, typ
         when Parser::ConstItem
-          # No cast needed for constants.
-          # XXX: This should be handled by the parser module.
-          Parser::ConstItem.new typ, item.value
+          # The parser should have handled this.
+          raise "ConstItem given to cast"
         else
           raise "invalid item #{item.class} given to cast"
         end

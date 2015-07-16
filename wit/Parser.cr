@@ -380,7 +380,11 @@ module Wit
         if @token.type == Scanner::TokenType::As
           self.next
           typ = self.parse_declared_type
-          res = @gen.cast res, typ
+          res = if res.is_a? ConstItem
+            ConstItem.new typ, res.value
+          else
+            @gen.cast res, typ
+          end
         end
 
         if @token.type.op?
