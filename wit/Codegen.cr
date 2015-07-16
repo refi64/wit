@@ -323,9 +323,10 @@ module Wit
           self.emittb "mov #{reg.regsz PTRSIZE}, #{self.itemstr lhs}"
           reg
         end
-        # XXX: the destination register should be on the appropiate size, NOT
-        # the largest possible.
-        dsts = dst.regsz PTRSIZE
+        lhsz = self.tysize lhs.typ
+        rhsz = self.tysize rhs.typ
+        raise "lhs and rhs sizes should be the same in op" if lhsz != rhsz
+        dsts = dst.regsz lhsz
         rhss = self.itemstr rhs
         case optype
         when 0 # +, -
