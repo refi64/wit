@@ -330,7 +330,7 @@ module Wit
         t, res = self.parse_prim
         self.error "cannot use void value as expression", t if res.is_a? VoidItem
 
-        if @token.type == Scanner::TokenType::As && min_prec == 0
+        if @token.type == Scanner::TokenType::As
           self.next
           typ = self.parse_declared_type
           res = @gen.cast res, typ
@@ -340,7 +340,7 @@ module Wit
           while @token.type.op? && (prec = @token.type.value % 4) >= min_prec
             op = @token
             self.next
-            rhs = parse_expr min_prec+1
+            rhs = self.parse_expr min_prec+1
             self.error "incompatible types #{res.typ.tystr} and #{rhs.typ.tystr} \
               in binary operation", op if res.typ != rhs.typ
             res = if res.is_a? ConstItem && rhs.is_a? ConstItem

@@ -3,7 +3,7 @@ begin
     var g: Int, d: Int
     a := 100000000 as Int*
     b := 2l
-    a := (b as Int)*2 as Int*
+    a := ((b as Int)*2) as Int*
     a := &b as Int*
     g := (b+1l) as Int
     d := (1+2-1)
