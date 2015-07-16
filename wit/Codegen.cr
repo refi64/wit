@@ -185,7 +185,8 @@ module Wit
           if item.mul == "1" && item.offs == "0"
             "[#{item.base}]"
           else
-            "[#{item.base}*#{item.mul}+#{item.offs}]"
+            offs = item.offs
+            "[#{item.base}*#{item.mul}#{offs[0] == '-' ? offs : "+#{offs}"}]"
           end
         when Parser::RegItem
           item.reg.regsz item.size
