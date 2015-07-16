@@ -216,6 +216,39 @@ module Wit
       def prepilog
       end
 
+      # The prolog of the main function.
+      def mainprolog
+        self.emit "_start:"
+      end
+
+      # The epilog
+      def mainepilog
+        # No need to reset the stack if no variables were allocated
+        if @totals[-1] != 0
+          self.emittb "mov rsp, rbp"
+          self.emittb "pop rbp"
+        end
+        @totals.pop
+        # Linux syscall for exit.
+        self.emittb "mov rax, 60"
+        self.emittb "xor rdi, rdi"
+        self.emittb "syscall"
+      end
+
+      # Procedure prolog.
+      def prolog
+      end
+
+      # Procedure epilog.
+      def epilog
+        if @totals[-1] != 0
+          self.emittb "mov rsp, rbp"
+          self.emittb "pop rbp"
+        end
+        @totals.pop
+        self.emittb "ret"
+      end
+
       # Emit the given globals.
       def emitglobals(globals)
         labels = {} of String => String
@@ -382,40 +415,6 @@ module Wit
         end
         self.ofree expr
         item
-      end
-
-      # The prolog of the main function.
-      # XXX: This should be with the others.
-      def mainprolog
-        self.emit "_start:"
-      end
-
-      # The epilog
-      def mainepilog
-        # No need to reset the stack if no variables were allocated
-        if @totals[-1] != 0
-          self.emittb "mov rsp, rbp"
-          self.emittb "pop rbp"
-        end
-        @totals.pop
-        # Linux syscall for exit.
-        self.emittb "mov rax, 60"
-        self.emittb "xor rdi, rdi"
-        self.emittb "syscall"
-      end
-
-      # Procedure prolog.
-      def prolog
-      end
-
-      # Procedure epilog.
-      def epilog
-        if @totals[-1] != 0
-          self.emittb "mov rsp, rbp"
-          self.emittb "pop rbp"
-        end
-        @totals.pop
-        self.emittb "ret"
       end
     end
   end
