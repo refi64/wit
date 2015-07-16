@@ -2,12 +2,9 @@ require "./Errors.cr"
 
 module Wit
   module Scanner
-    UNARY = 4
-
     enum TokenType
       # NOTE: These tokens are sorted for efficient precedence comparisons.
       # precedence(token) = token.value % 4
-      # unary precedence = 4 (highest)
 
       LShift # 0
       Plus # 1

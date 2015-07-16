@@ -287,7 +287,7 @@ module Wit
       def parse_unary
         op = @token
         self.next
-        item = self.parse_expr Scanner::UNARY
+        item = self.parse_prim[1]
         res = case op.type
         when Scanner::TokenType::Amp
           self.error "expression is not addressable" if !item.addressable?
