@@ -2,9 +2,11 @@ require "./Errors.cr"
 
 module Wit
   module Scanner
+    PRECMOD = 4
+
     enum TokenType
       # NOTE: These tokens are sorted for efficient precedence comparisons.
-      # precedence(token) = token.value % 4
+      # precedence(token) = token.value % PRECMOD
 
       LShift # 0
       Plus # 1
@@ -43,10 +45,12 @@ module Wit
       Begin
       End
 
+      # Is this an operator?
       def op?
         self.value < TokenType::OpGuard.value
       end
 
+      # Is this an unary operator?
       def unaryop?
         [TokenType::Amp, TokenType::Minus].includes? self
       end
@@ -62,6 +66,7 @@ module Wit
         @colno = colno
       end
 
+      # For debugging.
       def to_s
         "Token #{@type} '#{@value.gsub('\'', "\\\'")}', #{@lineno}:#{@colno}"
       end
@@ -70,6 +75,7 @@ module Wit
     class Scanner
       getter lineno, colno
 
+      # A hash of keywords and their token types.
       @@kw = {"begin" => TokenType::Begin, "end" => TokenType::End,
               "var" => TokenType::Var, "export" => TokenType::Export,
               "as" => TokenType::As}
@@ -77,11 +83,14 @@ module Wit
       def initialize
         @lineno = 1
         @colno = 0
+        # The "backups".
+        # Used to save the start of a token.
         @blineno = @bcolno = 0
         @look = ' '
         self.getc
       end
 
+      # Read a character from stdin
       def getc
         chr = STDIN.read_char
         if chr
@@ -92,22 +101,27 @@ module Wit
         @colno += 1
       end
 
+      # Is the current character a letter?
       def alpha?
         @look.alpha?
       end
 
+      # Is the current character a digit?
       def digit?
         @look.digit?
       end
 
+      # Is the current character in the range [A-Za-z0-9]?
       def alnum?
         @look.alphanumeric?
       end
 
+      # Can the current character be in an identifier?
       def idchar?
         self.alnum? || @look == '_'
       end
 
+      # Skip whitespace and comments.
       def skipwhite
         while [' ', '\t', '\n', '#'].includes? @look
           if @look == '\n'
@@ -115,6 +129,7 @@ module Wit
             @colno = 0
           end
           if @look == '#'
+            # Read the rest of the line.
             self.getc until @look == '\n'
           else
             self.getc
@@ -122,14 +137,17 @@ module Wit
         end
       end
 
+      # Returns a new token with saved position.
       def token(type, value="")
         Token.new @blineno, @bcolno, type, value
       end
 
       def next
         self.skipwhite
+        # Save the starting position.
         @blineno, @bcolno = @lineno, @colno
         if self.alpha?
+          # Identifier.
           id = String.build do |ss|
             while self.idchar?
               ss << @look
@@ -138,16 +156,19 @@ module Wit
           end
           self.token @@kw.fetch(id, TokenType::Id), id
         elsif self.digit?
+          # Number.
           val = String.build do |ss|
             while self.digit? || @look == '.'
               ss << @look
               self.getc
             end
           end
+          # Numeric suffixes.
           if @look == 'l'
             val += @look
             self.getc
           end
+          # Determine whether it's a float or integer.
           type = if val.includes? '.'
             TokenType::Float
           else
@@ -155,6 +176,7 @@ module Wit
           end
           self.token type, val
         elsif @look == ':'
+          # Colon or assignment.
           self.getc
           if @look == '='
             self.getc
@@ -163,8 +185,10 @@ module Wit
             self.token TokenType::Colon, ":"
           end
         elsif @look == '\''
+          # Character literal.
           self.getc
           if @look == '\\'
+            # Escape sequence.
             self.getc
             esc = true
           else
@@ -175,6 +199,7 @@ module Wit
           raise LexError.new @lineno, @colno, "unterminated char literal" \
             if @look != '\''
           if esc
+            # Generate the escaped character.
             chr = case chr
             when 'n'
               '\n'
@@ -190,6 +215,7 @@ module Wit
           self.getc
           self.token TokenType::Char, chr.to_s
         else
+          # Lex a simple token.
           type = case @look
           when ','
             TokenType::Comma

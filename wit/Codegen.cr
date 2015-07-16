@@ -1,7 +1,8 @@
 module Wit
   module Codegen
-    PTRSIZE = 8
+    PTRSIZE = 8 # The size of a pointer, in bytes. (should equal sizeof(void*))
 
+    # All the x64 registers.
     enum Reg
       Rax
       Rbx
@@ -16,10 +17,12 @@ module Wit
       R10
       R11
 
+      # Is this an x64-only register?
       def reg64?
         self.value >= 8
       end
 
+      # Generate the appropiate register string given the desired size.
       def regsz(sz)
         reg64 = self.reg64?
         base = self.to_s.downcase
@@ -38,6 +41,7 @@ module Wit
       end
     end
 
+    # x64 info for builtin types.
     class X64BuiltinTypeInfo
       getter size
 
@@ -55,14 +59,22 @@ module Wit
       end
     end
 
+    # Variable info.
     class X64VarInfo
+      # global determines if this is a global variable.
+      # size is the size in bytes.
+      # label is the base of the variable.
+      # offs is the offset.
+      # Variable is at [label+offs]
       getter global, size, label, offs
 
       def initialize(@global, @size, @label, @offs)
       end
     end
 
+    # Procedure info.
     class X64BuiltinProcInfo
+      # sym: the procedure name
       getter sym
 
       def initialize(@sym)
@@ -70,14 +82,21 @@ module Wit
     end
 
     class X64Generator
+      # All the registers that can be used for values.
+      # XXX: This should be sorted in an order that will minimize spills by
+      # needsregsfor.
       @@allregs = [Reg::Rbx, Reg::Rcx, Reg::Rdx, Reg::Rsi, Reg::Rdi, Reg::R8,
                    Reg::R9, Reg::R10, Reg::R11]
 
       def initialize
+        # totals is used to determine how much space to let off the stack
+        # when a procedure returns.
         @totals = [] of Int32
+        # The used registers.
         @usedregs = [] of Reg
       end
 
+      # Get the Intel-style string representing an integral byte count.
       def getszstr(sz)
         case sz
         when 1
@@ -93,33 +112,43 @@ module Wit
         end
       end
 
+      # Emit a line.
       def emit(line="")
         puts line
       end
 
+      # Emit a line with two preceding spaces.
       def emittb(line="")
         self.emit "  #{line}"
       end
 
+      # Get a register from the list of available ones.
+      # XXX: This will crash if too many registers are used.
+      # It needs to spill one onto the stack and reuse it instead.
       def getreg
         reg = @@allregs.select{|reg| !@usedregs.includes? reg}[0]
         @usedregs.push reg
         reg
       end
 
+      # Mark a register as no longer used.
       def freereg(reg)
         @usedregs.delete reg
       end
 
+      # Free a register if it's a register item.
       def ofree(maybereg)
         self.freereg maybereg.reg if maybereg.is_a? Parser::RegItem
       end
 
+      # Use a register for the duration of the given block.
       def regblock
         yield reg = self.getreg
         self.freereg reg
       end
 
+      # Require the given registers for the block's duration.
+      # Spills a used one if needed.
       def needsregsfor(regs)
         used = regs.select{|reg| @usedregs.includes? reg}
         used.each do |reg|
@@ -133,6 +162,7 @@ module Wit
         end
       end
 
+      # Get the size of the given type.
       def tysize(typ)
         case typ
         when Parser::BuiltinType
@@ -144,12 +174,14 @@ module Wit
         end
       end
 
+      # Convert the given item to a string suitiable for use in an x64 operand.
       def itemstr(item)
         case item
         when Parser::ConstItem
-          # to_s will give scientific notation of large numbers
+          # to_s will give scientific notation for large numbers
           "%d" % item.value
         when Parser::MemItem
+          # Optimize.
           if item.mul == "1" && item.offs == "0"
             "[#{item.base}]"
           else
@@ -162,29 +194,36 @@ module Wit
         end
       end
 
+      # The prolog of the program.
       def prprolog
         self.emit "global _start"
         self.emit
       end
 
+      # The beginning of the data section.
       def datasect
         self.emit "section .data"
         self.emittb "wit$newl: db 10"
       end
 
+      # The beginning of the instruction section.
       def isect
         self.emit "section .text"
       end
 
+      # The program epilog.
       def prepilog
       end
 
+      # Emit the given globals.
       def emitglobals(globals)
         labels = {} of String => String
+        # Export the ones that need to be exported.
         globals.each do |name, var|
           labels[name] = var.export ? name : "wit$global$#{name}"
           self.emittb "global #{labels[name]}" if var.export
         end
+        # Generate the storage sections.
         globals.each do |name, var|
           sz = self.tysize var.typ
           var.info = X64VarInfo.new true, sz, labels[name], 0
@@ -204,6 +243,7 @@ module Wit
         end
       end
 
+      # Emit the code to allocate locals on the stack.
       def emitlocals(locals)
         total = 0
         locals.values.each do |var|
@@ -211,13 +251,15 @@ module Wit
           total += sz
           var.info = X64VarInfo.new false, sz, "", total
         end
+        # Save the total for use in the epilog.
         @totals.push total
-        return unless total != 0
+        return if total == 0 # Optimize.
         self.emittb "push rbp"
         self.emittb "mov rbp, rsp"
         self.emittb "sub rsp, #{total}"
       end
 
+      # Return an item representing the given variable.
       def id(id)
         info = id.info as X64VarInfo
         if info.global
@@ -227,6 +269,7 @@ module Wit
         end
       end
 
+      # Generate code for the address of the item.
       def address(item)
         raise "invalid item #{item.class} given to address"\
           if !item.is_a? Parser::MemItem
@@ -235,15 +278,19 @@ module Wit
         Parser::RegItem.new reg, PTRSIZE, Parser::PointerType.new item.typ
       end
 
+      # Generate an arithmetic operation.
       def op(lhs, rhs, op)
-        optype = op.value % 3
+        optype = op.value % Scanner::PRECMOD
         dst = if lhs.is_a? Parser::RegItem
           lhs.reg
         else
+          # Allocate a register for the left hand side.
           reg = self.getreg
           self.emittb "mov #{reg.regsz PTRSIZE}, #{self.itemstr lhs}"
           reg
         end
+        # XXX: the destination register should be on the appropiate size, NOT
+        # the largest possible.
         dsts = dst.regsz PTRSIZE
         rhss = self.itemstr rhs
         case optype
@@ -261,25 +308,31 @@ module Wit
         Parser::RegItem.new dst, self.tysize(lhs.typ), lhs.typ
       end
 
+      # Generate the code to cast a variable.
       def cast(item, typ)
         srcsz = self.tysize item.typ
         dstsz = self.tysize typ
         case item
         when Parser::RegItem
+          # Clear out the top bits.
           self.emittb "and #{item.reg.regsz srcsz}, 0x#{"F"*(dstsz-srcsz).abs}"
           Parser::RegItem.new item.reg, dstsz, typ
         when Parser::MemItem
           reg = self.getreg
+          # Clear out the top bits.
           self.emittb "xor #{reg.regsz dstsz}" if dstsz > srcsz
           self.emittb "mov #{reg.regsz dstsz}, #{self.itemstr item}"
           Parser::RegItem.new reg, dstsz, typ
         when Parser::ConstItem
+          # No cast needed for constants.
+          # XXX: This should be handled by the parser module.
           Parser::ConstItem.new typ, item.value
         else
           raise "invalid item #{item.class} given to cast"
         end
       end
 
+      # Generate code for a call.
       def call(tgt, args)
         if tgt.is_a? Parser::BuiltinProc
           case sym = tgt.procinfo.sym
@@ -294,6 +347,7 @@ module Wit
             Parser::VoidItem.new
           when :D2I
             reg = self.getreg
+            # d2i(x) = x - '0'
             self.emittb "mov #{reg.regsz 1}, #{self.itemstr args[0]}"
             self.emittb "sub #{reg.regsz 1}, 48"
             Parser::RegItem.new reg, 1, tgt.ret as Parser::Type
@@ -305,9 +359,11 @@ module Wit
         end
       end
 
+      # Generate code for a variable assignment.
       def assign(tgt, expr)
         info = tgt.info as X64VarInfo
         szstr = self.getszstr info.size
+        # XXX: Is `out` really needed here?
         out, item = if info.global
           {info.label, Parser::MemItem.new info.label, "1", "0", tgt.typ}
         else
@@ -317,6 +373,7 @@ module Wit
         itemstr = self.itemstr expr
         if expr.is_a? Parser::MemItem
           self.regblock do |reg|
+            # x64 doesn't allow moving memory to memory.
             regsz = reg.regsz info.size
             self.emittb "mov #{regsz}, #{itemstr}"
             self.emittb "mov [#{out}], #{regsz}"
@@ -328,24 +385,31 @@ module Wit
         item
       end
 
+      # The prolog of the main function.
+      # XXX: This should be with the others.
       def mainprolog
         self.emit "_start:"
       end
 
+      # The epilog
       def mainepilog
+        # No need to reset the stack if no variables were allocated
         if @totals[-1] != 0
           self.emittb "mov rsp, rbp"
           self.emittb "pop rbp"
         end
         @totals.pop
+        # Linux syscall for exit.
         self.emittb "mov rax, 60"
         self.emittb "xor rdi, rdi"
         self.emittb "syscall"
       end
 
+      # Procedure prolog.
       def prolog
       end
 
+      # Procedure epilog.
       def epilog
         if @totals[-1] != 0
           self.emittb "mov rsp, rbp"
