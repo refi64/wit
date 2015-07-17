@@ -78,6 +78,8 @@ module Wit
       abstract def typ
       # Can it's address be taken? (only true for memory location)
       abstract def addressable?
+      # Shallow copy the current item, changing the result's type to typ.
+      abstract def retype(typ)
     end
 
     # A compile-time constant value.
@@ -89,6 +91,10 @@ module Wit
 
       def addressable?
         false
+      end
+
+      def retype(typ)
+        ConstItem.new typ, @value
       end
     end
 
@@ -102,6 +108,10 @@ module Wit
       def addressable?
         false
       end
+
+      def retype(typ)
+        RegItem.new @reg, @size, typ
+      end
     end
 
     # A memory location: [base*mul+offs].
@@ -114,6 +124,10 @@ module Wit
       def addressable?
         true
       end
+
+      def retype(typ)
+        MemItem.new @base, @mul, @offs, typ
+      end
     end
 
     # Represents lack of a value.
@@ -125,6 +139,10 @@ module Wit
 
       def addressable?
         false
+      end
+
+      def retype(typ)
+        raise "called retype on void item"
       end
     end
 

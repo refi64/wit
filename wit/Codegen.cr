@@ -347,6 +347,8 @@ module Wit
       def cast(item, typ)
         srcsz = self.tysize item.typ
         dstsz = self.tysize typ
+        # Avoid generating useless instructions and `mov`s.
+        return item.retype typ if srcsz == dstsz
         case item
         when Parser::RegItem
           # Clear out the top bits.
