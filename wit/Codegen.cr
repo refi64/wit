@@ -328,8 +328,19 @@ module Wit
       # Generate an arithmetic operation.
       def op(lhs, rhs, op)
         optype = op.prec
-        dst = self.getreg
-        self.emittb "mov #{dst.regsz self.tysize lhs.typ}, #{self.itemstr lhs}"
+        dst = if optype == 2
+          # Multiplication and division always return in ax.
+          Reg::Rax
+        elsif lhs.is_a? Parser::RegItem
+          # Registers are only used for temporaries, so the result can be placed
+          # there.
+          lhs.reg
+        else
+          # The left-hand-side must be moved to the register.
+          reg = self.getreg
+          self.emittb "mov #{reg.regsz self.tysize lhs.typ}, #{self.itemstr lhs}"
+          reg
+        end
         lhsz = self.tysize lhs.typ
         rhsz = self.tysize rhs.typ
         raise "lhs and rhs sizes should be the same in op" if lhsz != rhsz
@@ -369,9 +380,6 @@ module Wit
             self.emittb "mov #{Reg::Rax.regsz self.tysize lhs.typ}, #{lhss}"
             self.emittb "#{ops} #{rhss}"
           end
-
-          self.ofree lhs, rhs
-          return Parser::RegItem.new Reg::Rax, lhs.typ
         end
         self.ofree lhs, rhs
         Parser::RegItem.new dst, lhs.typ
