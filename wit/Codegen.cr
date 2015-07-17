@@ -131,14 +131,16 @@ module Wit
         reg
       end
 
-      # Mark a register as no longer used.
-      def freereg(reg)
-        @usedregs.delete reg
+      # Mark some registers as no longer used.
+      def freereg(*regs)
+        regs.each { |reg| @usedregs.delete reg }
       end
 
-      # Free a register if it's a register item.
-      def ofree(maybereg)
-        self.freereg maybereg.reg if maybereg.is_a? Parser::RegItem
+      # Free registers if they're register items.
+      def ofree(*regs)
+        regs.each do |maybereg|
+          self.freereg maybereg.reg if maybereg.is_a? Parser::RegItem
+        end
       end
 
       # Use a register for the duration of the given block.
@@ -309,6 +311,7 @@ module Wit
           if !item.is_a? Parser::MemItem
         reg = self.getreg
         self.emittb "lea #{reg.regsz PTRSIZE}, #{self.itemstr item}"
+        self.ofree item
         Parser::RegItem.new reg, Parser::PointerType.new item.typ
       end
 
@@ -318,6 +321,7 @@ module Wit
         regsz = reg.regsz self.tysize item.typ
         self.emittb "mov #{regsz}, #{self.itemstr item}"
         self.emittb "neg #{regsz}"
+        self.ofree item
         Parser::RegItem.new reg, item.typ
       end
 
@@ -366,9 +370,10 @@ module Wit
             self.emittb "#{ops} #{rhss}"
           end
 
+          self.ofree lhs, rhs
           return Parser::RegItem.new Reg::Rax, lhs.typ
         end
-        self.ofree rhs
+        self.ofree lhs, rhs
         Parser::RegItem.new dst, lhs.typ
       end
 
@@ -378,7 +383,7 @@ module Wit
         dstsz = self.tysize typ
         # Avoid generating useless instructions and `mov`s.
         return item.retype typ if srcsz == dstsz
-        case item
+        res = case item
         when Parser::RegItem
           # Clear out the top bits.
           self.emittb "and #{item.reg.regsz srcsz}, 0x#{"F"*(dstsz-srcsz).abs}"
@@ -395,11 +400,13 @@ module Wit
         else
           raise "invalid item #{item.class} given to cast"
         end
+        self.ofree item
+        res
       end
 
       # Generate code for a call.
       def call(tgt, args)
-        if tgt.is_a? Parser::BuiltinProc
+        res = if tgt.is_a? Parser::BuiltinProc
           case sym = tgt.procinfo.sym
           when :WriteELn
             self.needsregsfor [Reg::Rdi, Reg::Rsi, Reg::Rdx] do
@@ -422,6 +429,8 @@ module Wit
         else
           raise "invalid proc type #{tgt.class} given to call"
         end
+        args.each { |arg| self.ofree arg }
+        res
       end
 
       # Generate code for a variable assignment.
@@ -445,7 +454,7 @@ module Wit
         else
           self.emittb "mov #{szstr} #{out}, #{itemstr}"
         end
-        self.ofree expr
+        self.ofree tgt, expr
         item
       end
     end
