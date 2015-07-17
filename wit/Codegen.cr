@@ -324,14 +324,8 @@ module Wit
       # Generate an arithmetic operation.
       def op(lhs, rhs, op)
         optype = op.prec
-        dst = if lhs.is_a? Parser::RegItem
-          lhs.reg
-        else
-          # Allocate a register for the left hand side.
-          reg = self.getreg
-          self.emittb "mov #{reg.regsz PTRSIZE}, #{self.itemstr lhs}"
-          reg
-        end
+        dst = self.getreg
+        self.emittb "mov #{dst.regsz PTRSIZE}, #{self.itemstr lhs}"
         lhsz = self.tysize lhs.typ
         rhsz = self.tysize rhs.typ
         raise "lhs and rhs sizes should be the same in op" if lhsz != rhsz
