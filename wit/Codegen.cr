@@ -189,7 +189,7 @@ module Wit
             "[#{item.base}*#{item.mul}#{offs[0] == '-' ? offs : "+#{offs}"}]"
           end
         when Parser::RegItem
-          item.reg.regsz item.size
+          item.reg.regsz self.tysize item.typ
         else
           raise "invalid item #{item.class} given to itemstr"
         end
@@ -309,17 +309,16 @@ module Wit
           if !item.is_a? Parser::MemItem
         reg = self.getreg
         self.emittb "lea #{reg.regsz PTRSIZE}, #{self.itemstr item}"
-        Parser::RegItem.new reg, PTRSIZE, Parser::PointerType.new item.typ
+        Parser::RegItem.new reg, Parser::PointerType.new item.typ
       end
 
       # Generate a two's complement (i.e. arithmetic) negation.
       def neg(item)
         reg = self.getreg
-        itemsz = self.tysize item.typ
-        regsz = reg.regsz itemsz
+        regsz = reg.regsz self.tysize item.typ
         self.emittb "mov #{regsz}, #{self.itemstr item}"
         self.emittb "neg #{regsz}"
-        Parser::RegItem.new reg, itemsz, item.typ
+        Parser::RegItem.new reg, item.typ
       end
 
       # Generate an arithmetic operation.
@@ -354,7 +353,7 @@ module Wit
           self.emittb "#{ops} #{dsts}, #{rhss}"
         end
         self.ofree rhs
-        Parser::RegItem.new dst, self.tysize(lhs.typ), lhs.typ
+        Parser::RegItem.new dst, lhs.typ
       end
 
       # Generate the code to cast a variable.
@@ -367,13 +366,13 @@ module Wit
         when Parser::RegItem
           # Clear out the top bits.
           self.emittb "and #{item.reg.regsz srcsz}, 0x#{"F"*(dstsz-srcsz).abs}"
-          Parser::RegItem.new item.reg, dstsz, typ
+          Parser::RegItem.new item.reg, typ
         when Parser::MemItem
           reg = self.getreg
           # Clear out the top bits.
           self.emittb "xor #{reg.regsz dstsz}" if dstsz > srcsz
           self.emittb "mov #{reg.regsz dstsz}, #{self.itemstr item}"
-          Parser::RegItem.new reg, dstsz, typ
+          Parser::RegItem.new reg, typ
         when Parser::ConstItem
           # The parser should have handled this.
           raise "ConstItem given to cast"
@@ -400,7 +399,7 @@ module Wit
             # d2i(x) = x - '0'
             self.emittb "mov #{reg.regsz 1}, #{self.itemstr args[0]}"
             self.emittb "sub #{reg.regsz 1}, 48"
-            Parser::RegItem.new reg, 1, tgt.ret as Parser::Type
+            Parser::RegItem.new reg, tgt.ret as Parser::Type
           else
             raise "invalid proc #{sym} given to call"
           end

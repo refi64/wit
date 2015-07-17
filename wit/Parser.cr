@@ -100,12 +100,9 @@ module Wit
 
     # A machine register
     class RegItem < Item
-      # XXX: The size field is not necessary.
-      # X64Generator already has tysize, so X64Generator.tysize x.typ is the same
-      # thing.
-      getter reg, size, typ
+      getter reg, typ
 
-      def initialize(@reg, @size, @typ)
+      def initialize(@reg, @typ)
       end
 
       def addressable?
@@ -113,7 +110,7 @@ module Wit
       end
 
       def retype(typ)
-        RegItem.new @reg, @size, typ
+        RegItem.new @reg, typ
       end
     end
 
