@@ -189,6 +189,21 @@ module Wit
           else
             self.token TokenType::Colon, ":"
           end
+        elsif @look == '<' || @look == '>'
+          # << and >>
+          chr = @look
+          self.getc
+          raise "greater-than and less-than not implemented"\
+            if @look != '<' && @look != '>'
+          type = case @look
+          when '<'
+            TokenType::LShift
+          when '>'
+            TokenType::RShift
+          else
+            raise "left-shift and right-shift operator got char #{chr}"
+          end
+          self.token type, chr.to_s
         elsif @look == '\''
           # Character literal.
           self.getc
