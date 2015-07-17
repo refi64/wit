@@ -85,8 +85,8 @@ module Wit
       # All the registers that can be used for values.
       # XXX: This should be sorted in an order that will minimize spills by
       # needsregsfor.
-      @@allregs = [Reg::Rbx, Reg::Rcx, Reg::Rdx, Reg::Rsi, Reg::Rdi, Reg::R8,
-                   Reg::R9, Reg::R10, Reg::R11]
+      @@allregs = [Reg::R8, Reg::R9, Reg::R10, Reg::R11, Reg::Rdx, Reg::Rbx,
+                   Reg::Rcx, Reg::Rsi, Reg::Rdi]
 
       def initialize
         # totals is used to determine how much space to let off the stack
