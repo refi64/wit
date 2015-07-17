@@ -152,12 +152,12 @@ module Wit
       def needsregsfor(regs)
         used = regs.select{|reg| @usedregs.includes? reg}
         used.each do |reg|
-          self.emittb "push #{reg}"
+          self.emittb "push #{reg.regsz PTRSIZE}"
           @usedregs.push reg
         end
         yield
         used.each do |reg|
-          self.emittb "pop #{reg}"
+          self.emittb "pop #{reg.regsz PTRSIZE}"
           @usedregs.delete reg
         end
       end
@@ -325,11 +325,12 @@ module Wit
       def op(lhs, rhs, op)
         optype = op.prec
         dst = self.getreg
-        self.emittb "mov #{dst.regsz PTRSIZE}, #{self.itemstr lhs}"
+        self.emittb "mov #{dst.regsz self.tysize lhs.typ}, #{self.itemstr lhs}"
         lhsz = self.tysize lhs.typ
         rhsz = self.tysize rhs.typ
         raise "lhs and rhs sizes should be the same in op" if lhsz != rhsz
         dsts = dst.regsz lhsz
+        lhss = self.itemstr lhs
         rhss = self.itemstr rhs
         case optype
         when 0, 1 # <<, >>, +, -
@@ -361,7 +362,7 @@ module Wit
           end
 
           self.needsregsfor [Reg::Rdx] do
-            self.emittb "mov rax, #{dsts}"
+            self.emittb "mov #{Reg::Rax.regsz self.tysize lhs.typ}, #{lhss}"
             self.emittb "#{ops} #{rhss}"
           end
 
