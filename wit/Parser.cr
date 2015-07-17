@@ -419,6 +419,10 @@ module Wit
             res = if res.is_a? ConstItem && rhs.is_a? ConstItem
               ConstItem.new res.typ, self.eval res.value, rhs.value, op
             else
+              # XXX:
+              # Given variable+constant_0+constant_1+constant_N..., this will
+              # generatd N instructions, even though the entire right-hand-side is
+              # entirely constant.
               @gen.op res, rhs, op.type
             end
           end
