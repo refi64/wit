@@ -6,7 +6,7 @@ begin
     a := ((b as Int)*2) as Int*
     a := &b as Int*
     g := (b+1l) as Int
-    a := a+a+a+a+a+a+a+a+a+a+a+a
+    a := ((a as Int)-2-2-2-2-2) as Int*
     d := (1+2-1)
     c := d2i('3')
     write_eln()

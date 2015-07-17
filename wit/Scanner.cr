@@ -54,6 +54,11 @@ module Wit
       def unaryop?
         [TokenType::Amp, TokenType::Minus].includes? self
       end
+
+      # Get the precedence of the current operator.
+      def prec
+        self.value % PRECMOD
+      end
     end
 
     class Token

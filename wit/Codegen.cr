@@ -314,7 +314,7 @@ module Wit
 
       # Generate an arithmetic operation.
       def op(lhs, rhs, op)
-        optype = op.value % Scanner::PRECMOD
+        optype = op.prec
         dst = if lhs.is_a? Parser::RegItem
           lhs.reg
         else

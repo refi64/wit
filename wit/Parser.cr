@@ -389,7 +389,7 @@ module Wit
       end
 
       # Parse an expression.
-      def parse_expr(min_prec=0)
+      def parse_expr(min_prec=-1)
         t, res = self.parse_prim
         self.error "cannot use void value as expression", t if res.is_a? VoidItem
 
@@ -399,16 +399,16 @@ module Wit
           self.next
           typ = self.parse_declared_type
           res = if res.is_a? ConstItem
-            ConstItem.new typ, res.value
+            res.retype typ
           else
             @gen.cast res, typ
           end
         end
 
         if @token.type.op?
+          min_prec = @token.type.prec if min_prec == -1
           # For @token.type.value, see Scanner.cr.
-          while @token.type.op? && (prec = @token.type.value % Scanner::PRECMOD)\
-            >= min_prec
+          while @token.type.op? && (prec = @token.type.prec) >= min_prec
             op = @token
             self.next
             rhs = self.parse_expr min_prec+1
