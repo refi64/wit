@@ -100,6 +100,9 @@ module Wit
 
     # A machine register
     class RegItem < Item
+      # XXX: The size field is not necessary.
+      # X64Generator already has tysize, so X64Generator.tysize x.typ is the same
+      # thing.
       getter reg, size, typ
 
       def initialize(@reg, @size, @typ)
@@ -350,8 +353,11 @@ module Wit
           self.error "expression is not addressable" if !item.addressable?
           @gen.address item
         when Scanner::TokenType::Minus
-          # TODO
-          raise "123"
+          if item.is_a? ConstItem
+            ConstItem.new item.typ, -item.value
+          else
+            @gen.neg item
+          end
         else
           raise "invalid token type #{op.type} labeled as unary"
         end

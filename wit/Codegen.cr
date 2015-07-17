@@ -312,6 +312,16 @@ module Wit
         Parser::RegItem.new reg, PTRSIZE, Parser::PointerType.new item.typ
       end
 
+      # Generate a two's complement (i.e. arithmetic) negation.
+      def neg(item)
+        reg = self.getreg
+        itemsz = self.tysize item.typ
+        regsz = reg.regsz itemsz
+        self.emittb "mov #{regsz}, #{self.itemstr item}"
+        self.emittb "neg #{regsz}"
+        Parser::RegItem.new reg, itemsz, item.typ
+      end
+
       # Generate an arithmetic operation.
       def op(lhs, rhs, op)
         optype = op.prec
