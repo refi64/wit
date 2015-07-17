@@ -223,7 +223,7 @@ module Wit
 
       # The epilog
       def mainepilog
-        # No need to reset the stack if no variables were allocated
+        # No need to reset the stack if no variables were allocated.
         if @totals[-1] != 0
           self.emittb "mov rsp, rbp"
           self.emittb "pop rbp"
@@ -351,6 +351,27 @@ module Wit
           end
 
           self.emittb "#{ops} #{dsts}, #{rhss}"
+        when 2 # *, /
+          ops = case op
+          when Scanner::TokenType::Star
+            "mul"
+          when Scanner::TokenType::Slash
+            "div"
+          end
+
+          if rhs.is_a? Parser::ConstItem
+            # x86/64 does not support the mul/div instruction with an immediate.
+            reg = self.getreg.regsz self.tysize rhs.typ
+            self.emittb "mov #{reg}, #{rhss}"
+            rhss = reg
+          end
+
+          self.needsregsfor [Reg::Rdx] do
+            self.emittb "mov rax, #{dsts}"
+            self.emittb "#{ops} #{rhss}"
+          end
+
+          return Parser::RegItem.new Reg::Rax, lhs.typ
         end
         self.ofree rhs
         Parser::RegItem.new dst, lhs.typ
