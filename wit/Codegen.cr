@@ -329,8 +329,12 @@ module Wit
         dsts = dst.regsz lhsz
         rhss = self.itemstr rhs
         case optype
-        when 0 # +, -
+        when 0, 1 # <<, >>, +, -
           ops = case op
+          when Scanner::TokenType::LShift
+            "shl"
+          when Scanner::TokenType::RShift
+            "shr"
           when Scanner::TokenType::Plus
             "add"
           when Scanner::TokenType::Minus
