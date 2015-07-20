@@ -1,3 +1,9 @@
+#[
+abc123
+]#
+
+# comment
+
 var export a: Int*, b: Long, c: Byte
 begin
     var g: Int, d: Int

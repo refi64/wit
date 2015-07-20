@@ -134,8 +134,17 @@ module Wit
             @colno = 0
           end
           if @look == '#'
-            # Read the rest of the line.
-            self.getc until @look == '\n'
+            self.getc
+            if @look == '['
+              # Multi-line comment
+              until @look == '#'
+                self.getc until @look == ']'
+                self.getc
+              end
+            else
+              # Read the rest of the line.
+              self.getc until @look == '\n'
+            end
           else
             self.getc
           end
