@@ -4,7 +4,7 @@ abc123
 
 # comment
 
-var export a: Int*, b: Long, c: Byte
+var export a: Int*, b: Long, c: Byte, l: Int[2]
 begin
     var g: Int, d: Int
     a := 100000000 as Int*

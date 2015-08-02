@@ -102,6 +102,29 @@ module Wit
       end
     end
 
+    class ArrayType < Type
+      getter base, cap
+
+      def initialize(@base, @cap)
+      end
+
+      def ==(other)
+        other.is_a? ArrayType && @base == other.base && @cap == other.cap
+      end
+
+      def tystr
+        "#{base.tystr}[#{@cap}]"
+      end
+
+      def supports?(op)
+        false # XXX: What operands should static arrays support?
+      end
+
+      def supports_with?(op, typ)
+        false
+      end
+    end
+
     # An abstract expression.
     abstract class Item
       # The expression's type.
@@ -277,7 +300,7 @@ module Wit
       def parse_declared_type
         self.expect Scanner::TokenType::Id
         typ = @token.value
-        typobj = self.typlookup typ
+        base = self.typlookup typ
         self.next
         case @token.type
         when Scanner::TokenType::Lbr
@@ -285,16 +308,25 @@ module Wit
           self.next
           if @token.value == Scanner::TokenType::Rbr
             self.next
-            raise "123"
+            raise "VLAs not yet implemented"
           else
-            raise "123"
+            size = self.parse_expr
+            res = if size.is_a? ConstItem
+              ArrayType.new base, size.value.to_i
+            else
+              self.error "array size must be constant"
+            end
+
+            self.expect Scanner::TokenType::Rbr
+            self.next
+            res
           end
         when Scanner::TokenType::Star
           # A pointer type.
           self.next
-          PointerType.new typobj
+          PointerType.new base
         else
-          typobj
+          base
         end
       end
 

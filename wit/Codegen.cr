@@ -171,6 +171,8 @@ module Wit
           typ.typeinfo.size
         when Parser::PointerType
           PTRSIZE
+        when Parser::ArrayType
+          typ.cap * self.tysize typ.base
         else
           raise "invalid type #{typ.class} given to tysize"
         end
