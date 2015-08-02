@@ -8,6 +8,7 @@ var export a: Int*, b: Long, c: Byte
 begin
     var g: Int, d: Int
     a := 100000000 as Int*
+    a := a + (a as Int)
     b := 2l
     d := b as Int
     a := ((b as Int)*2) as Int*

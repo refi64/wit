@@ -38,6 +38,10 @@ module Wit
     abstract class Type < Object
       # Convert the type to a string representation suitable for error messages.
       abstract def tystr
+      # Does the type support the given binary operation?
+      abstract def supports?(op)
+      # Does the type support the given binary operation with the given type?
+      abstract def supports_with?(op, typ)
     end
 
     # A builtin type
@@ -55,6 +59,19 @@ module Wit
       def tystr
         @sym.to_s
       end
+
+      def supports?(op)
+        true # XXX: op should be checked. This will explode.
+      end
+
+      def supports_with?(op, typ)
+        # XXX: op should be checked. This will also explode.
+        if typ.is_a? BuiltinType
+          @sym == typ.sym
+        else
+          false
+        end
+      end
     end
 
     class PointerType < Type
@@ -69,6 +86,19 @@ module Wit
 
       def tystr
         "#{base.tystr}*"
+      end
+
+      def supports?(op)
+        true # XXX: See above comments.
+      end
+
+      def supports_with?(op, typ)
+        # XXX: op should also be checked here.
+        if typ.is_a? PointerType
+          @base == typ.base
+        else
+          true
+        end
       end
     end
 
@@ -416,12 +446,17 @@ module Wit
             self.next
             rhs = self.parse_expr min_prec+1
             # Make sure both types are equal.
+            self.error "type #{res.typ.tystr} does not support this binary \
+              operation" if !res.typ.supports? op.type
             self.error "incompatible types #{res.typ.tystr} and #{rhs.typ.tystr} \
-              in binary operation", op if res.typ != rhs.typ
+              in binary operation", op if !res.typ.supports_with? op.type, rhs.typ
             # If they are both constant, evaluate the expression at compile time.
             res = if res.is_a? ConstItem && rhs.is_a? ConstItem
               ConstItem.new res.typ, self.eval res.value, rhs.value, op
             else
+              if res.typ != rhs.typ
+                res, rhs = @gen.eqtyp res, rhs
+              end
               # XXX:
               # Given variable+constant_0+constant_1+constant_N..., this will
               # generatd N instructions, even though the entire right-hand-side is

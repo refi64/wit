@@ -325,6 +325,27 @@ module Wit
         Parser::RegItem.new reg, item.typ
       end
 
+      # Cast lhs and rhs to a common type
+      def eqtyp(lhs, rhs)
+        lhsz = self.tysize lhs.typ
+        rhsz = self.tysize rhs.typ
+        if lhsz > rhsz
+          rhs = if rhs.is_a? Parser::ConstItem
+            rhs.retype lhs.typ
+          else
+            self.cast rhs, lhs.typ
+          end
+        elsif lhsz < rhsz
+          lhs = if lhs.is_a? Parser::ConstItem
+            lhs.retype rhs.typ
+          else
+            self.cast lhs, rhs.typ
+          end
+        end
+
+        {lhs, rhs}
+      end
+
       # Generate an arithmetic operation.
       def op(lhs, rhs, op)
         optype = op.prec
