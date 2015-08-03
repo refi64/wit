@@ -3,5 +3,6 @@ wit/Errors.cr
 wit/Parser.cr
 wit/Scanner.cr
 wit/Codegen.cr
+wit/Types.cr
 fbuildroot.py
 prog.wit
