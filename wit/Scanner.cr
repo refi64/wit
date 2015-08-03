@@ -99,11 +99,16 @@ module Wit
       def getc
         chr = STDIN.read_char
         if chr
+          if chr == '\n'
+            @lineno += 1
+            @colno = 0
+          else
+            @colno += 1
+          end
           @look = chr
         else
           raise EOFError.new @lineno, @colno
         end
-        @colno += 1
       end
 
       # Is the current character a letter?
@@ -129,16 +134,12 @@ module Wit
       # Skip whitespace and comments.
       def skipwhite
         while [' ', '\t', '\n', '#'].includes? @look
-          if @look == '\n'
-            @lineno += 1
-            @colno = 0
-          end
           if @look == '#'
             self.getc
             if @look == '['
               # Multi-line comment
-              until @look == '#'
-                self.getc until @look == ']'
+              while @look != '#'
+                self.getc while @look != ']'
                 self.getc
               end
             else
