@@ -464,6 +464,39 @@ module Wit
         res
       end
 
+      # Generate code for an index.
+      def index(array, index)
+        basetyp = (array.typ as Parser::DerivedType).base
+        basesz = self.tysize basetyp
+        abase, tgt = if array.is_a? Parser::RegItem
+          {array.reg.regsz(PTRSIZE), array.reg}
+        else
+          if array.is_a? Parser::MemItem
+            {array.base, self.getreg}
+          else
+            raise "item #{array.class} given as array to index"
+          end
+        end
+        asz = self.tysize array.typ
+
+        offs, mul = if index.is_a? Parser::ConstItem
+          {index.value.to_s, 1}
+        else
+          if index.is_a? Parser::MemItem
+            # Memory indexes should be moved to registers
+            reg = self.getreg
+            self.emittb "mov #{reg.regsz self.tysize index.typ}, \
+              #{self.itemstr index}"
+            index = Parser::RegItem.new reg, index.typ
+          end
+          {self.itemstr(index), basesz}
+        end
+
+        self.emittb "mov #{tgt.regsz basesz}, [#{abase}+#{offs}*#{mul}]"
+        self.ofree index
+        Parser::RegItem.new tgt, basetyp
+      end
+
       # Generate code for a variable assignment.
       def assign(tgt, expr)
         info = tgt.info as X64VarInfo

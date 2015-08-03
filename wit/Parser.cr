@@ -38,6 +38,12 @@ module Wit
     abstract class Type < Object
       # Convert the type to a string representation suitable for error messages.
       abstract def tystr
+      # Can values of the type be indexed?
+      abstract def indexes?
+      # Can values of the type be indexed with the given type?
+      abstract def indexes_with?(typ)
+      # Can the type be used to index a pointer or array?
+      abstract def index?
       # Does the type support the given binary operation?
       abstract def supports?(op)
       # Does the type support the given binary operation with the given type?
@@ -60,6 +66,18 @@ module Wit
         @sym.to_s
       end
 
+      def indexes?
+        false
+      end
+
+      def indexes_with?(typ)
+        false
+      end
+
+      def index?
+        true
+      end
+
       def supports?(op)
         true # XXX: op should be checked. This will explode.
       end
@@ -74,9 +92,11 @@ module Wit
       end
     end
 
-    class PointerType < Type
+    abstract class DerivedType < Type
       getter base
+    end
 
+    class PointerType < DerivedType
       def initialize(@base)
       end
 
@@ -86,6 +106,18 @@ module Wit
 
       def tystr
         "#{base.tystr}*"
+      end
+
+      def indexes?
+        true
+      end
+
+      def indexes_with?(typ)
+        typ.index?
+      end
+
+      def index?
+        false
       end
 
       def supports?(op)
@@ -102,8 +134,8 @@ module Wit
       end
     end
 
-    class ArrayType < Type
-      getter base, cap
+    class ArrayType < DerivedType
+      getter cap
 
       def initialize(@base, @cap)
       end
@@ -114,6 +146,18 @@ module Wit
 
       def tystr
         "#{base.tystr}[#{@cap}]"
+      end
+
+      def indexes?
+        true
+      end
+
+      def indexes_with?(typ)
+        typ.index?
+      end
+
+      def index?
+        false
       end
 
       def supports?(op)
@@ -402,6 +446,20 @@ module Wit
         @gen.call proc, args
       end
 
+      # Parse an index expression..
+      def parse_index(base_id)
+        base = self.varlookup base_id
+        self.error "#{base.typ.tystr} does not support indexing"\
+          if !base.typ.indexes?
+        self.next
+        index = self.parse_expr
+        self.error "#{base.typ.tystr} cannot be indexed with #{index.typ.tystr}"\
+          if !base.typ.indexes_with? index.typ
+        self.expect Scanner::TokenType::Rbr
+        self.next
+        @gen.index (@gen.id base), index
+      end
+
       # Parse an unary operator with an expression.
       def parse_unary
         op = @token
@@ -517,12 +575,14 @@ module Wit
           @gen.assign tgt, expr
         when Scanner::TokenType::Lparen
           self.parse_call id
+        when Scanner::TokenType::Lbr
+          self.parse_index id
         else
           var = self.lookup id
           if var.is_a? Proc
             self.parse_call id
           else
-            self.error "expected assignment or call" unless bare
+            self.error "expected assignment or call" if !bare
             @gen.id self.varlookup id
           end
         end
