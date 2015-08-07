@@ -180,8 +180,7 @@ module Wit
       end
 
       # Parse a function call.
-      def parse_call(tgt)
-        proc = self.proclookup tgt
+      def parse_call(proc)
         # paren is a variable that determines whether or not the call is
         # parenthesized.
         # Wit uses the Pascal style of being able to omit parenthesis when the
@@ -209,8 +208,7 @@ module Wit
       end
 
       # Parse an index expression..
-      def parse_index(base_id)
-        base = self.varlookup base_id
+      def parse_index(base)
         self.error "#{base.typ.tystr} does not support indexing"\
           if !base.typ.indexes?
         self.next
@@ -219,7 +217,7 @@ module Wit
           if !base.typ.indexes_with? index.typ
         self.expect Scanner::TokenType::Rbr
         self.next
-        @gen.index (@gen.id base), index
+        @gen.index base, index
       end
 
       # Parse an unary operator with an expression.
@@ -246,9 +244,9 @@ module Wit
       # Parse a primitive atom expression.
       # Unlike most parse* functions, this returns a tuple {start token, item}
       # instead of just an item. This is so parse_expr's error messages will be
-      # more exact.
-      def parse_prim
-        case @token.type
+      # more exact. optsuf determines if the suffix is optional.
+      def parse_prim(optsuf=true)
+        token, item = case @token.type
         when Scanner::TokenType::Integer
           {@token, self.parse_int_expr}
         when Scanner::TokenType::Char
@@ -257,7 +255,22 @@ module Wit
           self.next
           res
         when Scanner::TokenType::Id
-          {@token, self.parse_id_with_suffix bare: true}
+          id = @token
+          obj = self.lookup id.value
+          self.next
+          res = case obj
+          when Proc
+            # XXX: This is a hack to allow a plain identifier to be used as a
+            # statement if it's a proc.
+            optsuf = true
+            self.parse_call obj
+          when Variable
+            @gen.id obj
+          else
+            # XXX: Should this be an internal error?
+            self.error "invalid usage of identifier in this context", id
+          end
+          {@token, res}
         when Scanner::TokenType::Lparen
           self.next
           res = {@token, self.parse_expr}
@@ -271,15 +284,49 @@ module Wit
             self.error "expected expression"
           end
         end
+
+        {token, self.parse_suffix item, optsuf}
       end
 
-      # Parse an expression.
-      def parse_expr(min_prec=-1)
-        t, res = self.parse_prim
+      # Parse an assignment, function call, or index. opt determines if the suffix
+      # is optional.
+      def parse_suffix(base, opt)
+        first = true
+        loop do
+          base = case @token.type
+          when Scanner::TokenType::Assign
+            self.error "cannot assign to rvalue" if !base.addressable?
+            tok = @token
+            self.next
+            expr = self.parse_expr
+            self.error "incompatible types #{base.typ.tystr} and\
+              #{expr.typ.tystr} in assignment", tok if base.typ != expr.typ
+            @gen.assign base, expr
+          when Scanner::TokenType::Lparen
+            if base.is_a? Proc
+              self.parse_call base
+            else
+              self.error "cannot call non-procedure type #{base.typ.tystr}"
+            end
+          when Scanner::TokenType::Lbr
+            self.parse_index base
+          else
+            self.error "expected statement" if !opt && first
+            return base
+          end
+
+          first = false
+        end
+      end
+
+      # Parse an expression. optsuf determines if the suffix is optional.
+      def parse_expr(min_prec=-1, optsuf=true)
+        t, res = self.parse_prim optsuf
+        return res if !@token.type.op? && @token.type != Scanner::TokenType::As
         self.error "cannot use void value as expression", t if res.is_a? VoidItem
 
         # XXX: casts should have the highest precedence, other than unary
-        # operators.
+        # operators. This should also be an operator.
         if @token.type == Scanner::TokenType::As
           self.next
           typ = self.parse_declared_type
@@ -317,37 +364,8 @@ module Wit
             end
           end
         end
-        res
-      end
 
-      # Parse an assignment, function call, or index.
-      # bare determines whether an error should occur if just a plain expression
-      # is found.
-      def parse_id_with_suffix(bare=false)
-        id = @token.value
-        self.next
-        case @token.type
-        when Scanner::TokenType::Assign
-          tgt = self.varlookup id
-          tok = @token
-          self.next
-          expr = self.parse_expr
-          self.error "incompatible types #{tgt.typ.tystr} and #{expr.typ.tystr} \
-            in assignment", tok if tgt.typ != expr.typ
-          @gen.assign tgt, expr
-        when Scanner::TokenType::Lparen
-          self.parse_call id
-        when Scanner::TokenType::Lbr
-          self.parse_index id
-        else
-          var = self.lookup id
-          if var.is_a? Proc
-            self.parse_call id
-          else
-            self.error "expected assignment or call" if !bare
-            @gen.id self.varlookup id
-          end
-        end
+        res
       end
 
       # Parse a block.
@@ -355,7 +373,7 @@ module Wit
         while @token.type != Scanner::TokenType::End
           case @token.type
           when Scanner::TokenType::Id
-            self.parse_id_with_suffix
+            self.parse_expr optsuf: false
           else
             self.error "expected statement"
           end

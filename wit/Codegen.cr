@@ -498,19 +498,14 @@ module Wit
 
       # Generate code for a variable assignment.
       def assign(tgt, expr)
-        info = tgt.info as X64VarInfo
-        szstr = self.getszstr info.size
-        item = if info.global
-          Parser::MemItem.new info.label, "1", "0", tgt.typ
-        else
-          Parser::MemItem.new "rbp", "1", "-#{info.offs}", tgt.typ
-        end
-        out = self.itemstr item
+        tgtsz = self.tysize tgt.typ
+        szstr = self.getszstr tgtsz
         itemstr = self.itemstr expr
+        out = self.itemstr tgt
         if expr.is_a? Parser::MemItem
           self.regblock do |reg|
             # x64 doesn't allow moving memory to memory.
-            regsz = reg.regsz info.size
+            regsz = reg.regsz tgtsz
             self.emittb "mov #{regsz}, #{itemstr}"
             self.emittb "mov #{out}, #{regsz}"
           end
@@ -518,7 +513,7 @@ module Wit
           self.emittb "mov #{szstr} #{out}, #{itemstr}"
         end
         self.ofree tgt, expr
-        item
+        tgt
       end
     end
   end

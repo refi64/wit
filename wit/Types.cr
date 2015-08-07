@@ -169,7 +169,7 @@ module Wit
     abstract class Item
       # The expression's type.
       abstract def typ
-      # Can it's address be taken? (only true for memory location)
+      # Can it's address be taken? (only true for memory locations)
       abstract def addressable?
       # Shallow copy the current item, changing the result's type to typ.
       abstract def retype(typ)
