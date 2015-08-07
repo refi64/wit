@@ -422,7 +422,7 @@ module Wit
         when Parser::MemItem
           reg = self.getreg
           # Clear out the top bits.
-          self.emittb "xor #{reg.regsz dstsz}" if dstsz > srcsz
+          self.emittb "xor #{reg.regsz dstsz}, #{reg.regsz dstsz}" if dstsz > srcsz
           self.emittb "mov #{reg.regsz dstsz}, #{self.itemstr item}"
           Parser::RegItem.new reg, typ
         when Parser::ConstItem
@@ -468,19 +468,20 @@ module Wit
       def index(array, index)
         basetyp = (array.typ as Parser::DerivedType).base
         basesz = self.tysize basetyp
-        abase, tgt = if array.is_a? Parser::RegItem
-          {array.reg.regsz(PTRSIZE), array.reg}
+        abase = if array.is_a? Parser::RegItem
+          array.reg
         else
           if array.is_a? Parser::MemItem
-            {array.base, self.getreg}
+            array.base
           else
+            # XXX: This will explode when const arrays are implemented.
             raise "item #{array.class} given as array to index"
           end
         end
         asz = self.tysize array.typ
 
-        offs, mul = if index.is_a? Parser::ConstItem
-          {index.value.to_s, 1}
+        mul, offs = if index.is_a? Parser::ConstItem
+          {1, index.value.to_s}
         else
           if index.is_a? Parser::MemItem
             # Memory indexes should be moved to registers
@@ -489,12 +490,10 @@ module Wit
               #{self.itemstr index}"
             index = Parser::RegItem.new reg, index.typ
           end
-          {self.itemstr(index), basesz}
+          {basesz, self.itemstr index}
         end
 
-        self.emittb "mov #{tgt.regsz basesz}, [#{abase}+#{offs}*#{mul}]"
-        self.ofree index
-        Parser::RegItem.new tgt, basetyp
+        Parser::MemItem.new abase, mul, offs, basetyp
       end
 
       # Generate code for a variable assignment.
