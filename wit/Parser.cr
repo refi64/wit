@@ -257,7 +257,7 @@ module Wit
           self.next
           res
         when Scanner::TokenType::Id
-          {@token, self.parse_assign_or_call bare: true}
+          {@token, self.parse_id_with_suffix bare: true}
         when Scanner::TokenType::Lparen
           self.next
           res = {@token, self.parse_expr}
@@ -320,10 +320,10 @@ module Wit
         res
       end
 
-      # Parse an assignment or function call.
+      # Parse an assignment, function call, or index.
       # bare determines whether an error should occur if just a plain expression
       # is found.
-      def parse_assign_or_call(bare=false)
+      def parse_id_with_suffix(bare=false)
         id = @token.value
         self.next
         case @token.type
@@ -355,7 +355,7 @@ module Wit
         while @token.type != Scanner::TokenType::End
           case @token.type
           when Scanner::TokenType::Id
-            self.parse_assign_or_call
+            self.parse_id_with_suffix
           else
             self.error "expected statement"
           end
