@@ -6,3 +6,6 @@ wit/Codegen.cr
 wit/Types.cr
 fbuildroot.py
 prog.wit
+!:
+import config from howl
+config.project_build_command = 'fbuild'
