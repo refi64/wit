@@ -9,7 +9,7 @@ module Wit
       setter info
       getter name, typ, export, info
 
-      def initialize(@name, @typ, @export)
+      def initialize(@name : String, @typ : Type, @export : Bool)
         @info = nil
       end
     end
@@ -25,7 +25,7 @@ module Wit
     class BuiltinProc < Proc
       getter procinfo
 
-      def initialize(@sym, @ret, @args)
+      def initialize(@sym, @ret : Type | Nil, @args : Array(Type))
         @procinfo = Codegen::X64BuiltinProcInfo.new sym
       end
     end
@@ -37,13 +37,13 @@ module Wit
       # Can values of the type be indexed?
       abstract def indexes?
       # Can values of the type be indexed with the given type?
-      abstract def indexes_with?(typ)
+      abstract def indexes_with?(typ : Type)
       # Can the type be used to index a pointer or array?
       abstract def index?
       # Does the type support the given binary operation?
-      abstract def supports?(op)
+      abstract def supports?(op : Scanner::TokenType)
       # Does the type support the given binary operation with the given type?
-      abstract def supports_with?(op, typ)
+      abstract def supports_with?(op : Scanner::TokenType, typ : Type)
     end
 
     # A builtin type

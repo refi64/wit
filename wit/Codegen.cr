@@ -23,7 +23,7 @@ module Wit
       end
 
       # Generate the appropiate register string given the desired size.
-      def regsz(sz)
+      def regsz(sz : Int32)
         reg64 = self.reg64?
         base = self.to_s.downcase
         case sz
@@ -68,7 +68,8 @@ module Wit
       # Variable is at [label+offs]
       getter global, size, label, offs
 
-      def initialize(@global, @size, @label, @offs)
+      def initialize(@global : Bool, @size : Int32, @label : String,
+        @offs : Int32)
       end
     end
 
@@ -97,7 +98,7 @@ module Wit
       end
 
       # Get the Intel-style string representing an integral byte count.
-      def getszstr(sz)
+      def getszstr(sz : Int32)
         case sz
         when 1
           "byte"
@@ -113,7 +114,7 @@ module Wit
       end
 
       # Get the d* size specifier for NASM data sections.
-      def getszspec(typ)
+      def getszspec(typ : Parser::Type)
         if typ.is_a? Parser::ArrayType
           return self.getszspec typ.base
         end
@@ -142,12 +143,12 @@ module Wit
       end
 
       # Mark some registers as no longer used.
-      def freereg(*regs)
+      def freereg(*regs : Reg)
         regs.each { |reg| @usedregs.delete reg }
       end
 
       # Free registers if they're register items.
-      def ofree(*regs)
+      def ofree(*regs : Parser::Item)
         regs.each do |maybereg|
           self.freereg maybereg.reg if maybereg.is_a? Parser::RegItem
         end
@@ -161,7 +162,7 @@ module Wit
 
       # Require the given registers for the block's duration.
       # Spills a used one if needed.
-      def needsregsfor(regs)
+      def needsregsfor(regs : Array(Reg))
         used = regs.select{|reg| @usedregs.includes? reg}
         used.each do |reg|
           self.emittb "push #{reg.regsz PTRSIZE}"
@@ -175,7 +176,7 @@ module Wit
       end
 
       # Get the size of the given type.
-      def tysize(typ)
+      def tysize(typ : Parser::Type)
         case typ
         when Parser::BuiltinType
           typ.typeinfo.size
@@ -189,7 +190,7 @@ module Wit
       end
 
       # Convert the given item to a string suitiable for use in an x64 operand.
-      def itemstr(item)
+      def itemstr(item : Parser::Item)
         case item
         when Parser::ConstItem
           # to_s will give scientific notation for large numbers
@@ -264,7 +265,7 @@ module Wit
       end
 
       # Emit the given globals.
-      def emitglobals(globals)
+      def emitglobals(globals : Hash(String, Parser::Variable))
         labels = {} of String => String
         # Export the ones that need to be exported.
         globals.each do |name, var|
@@ -288,7 +289,7 @@ module Wit
       end
 
       # Emit the code to allocate locals on the stack.
-      def emitlocals(locals)
+      def emitlocals(locals : Hash(String, Parser::Variable))
         total = 0
         locals.values.each do |var|
           sz = self.tysize var.typ
@@ -304,7 +305,7 @@ module Wit
       end
 
       # Return an item representing the given variable.
-      def id(id)
+      def id(id : Parser::Variable)
         info = id.info as X64VarInfo
         if info.global
           Parser::MemItem.new info.label, "1", "0", id.typ
@@ -314,7 +315,7 @@ module Wit
       end
 
       # Generate code for the address of the item.
-      def address(item)
+      def address(item : Parser::Item)
         raise "invalid item #{item.class} given to address"\
           if !item.is_a? Parser::MemItem
         reg = self.getreg
@@ -324,7 +325,7 @@ module Wit
       end
 
       # Generate a two's complement (i.e. arithmetic) negation.
-      def neg(item)
+      def neg(item : Parser::Item)
         reg = self.getreg
         regsz = reg.regsz self.tysize item.typ
         self.emittb "mov #{regsz}, #{self.itemstr item}"
@@ -334,7 +335,7 @@ module Wit
       end
 
       # Cast lhs and rhs to a common type
-      def eqtyp(lhs, rhs)
+      def eqtyp(lhs : Parser::Item, rhs : Parser::Item)
         lhsz = self.tysize lhs.typ
         rhsz = self.tysize rhs.typ
         if lhsz > rhsz
@@ -355,7 +356,7 @@ module Wit
       end
 
       # Generate an arithmetic operation.
-      def op(lhs, rhs, op)
+      def op(lhs : Parser::Item, rhs : Parser::Item, op : Scanner::TokenType)
         optype = op.prec
         dst = if optype == 2
           # Multiplication and division always return in ax.
@@ -415,7 +416,7 @@ module Wit
       end
 
       # Generate the code to cast a variable.
-      def cast(item, typ)
+      def cast(item : Parser::Item, typ : Parser::Type)
         srcsz = self.tysize item.typ
         dstsz = self.tysize typ
         # Avoid generating useless instructions and `mov`s.
@@ -443,7 +444,7 @@ module Wit
       end
 
       # Generate code for a call.
-      def call(tgt, args)
+      def call(tgt : Parser::Proc, args : Array(Parser::Item))
         res = if tgt.is_a? Parser::BuiltinProc
           case sym = tgt.procinfo.sym
           when :WriteELn
@@ -472,7 +473,7 @@ module Wit
       end
 
       # Generate code for an index.
-      def index(array, index)
+      def index(array : Parser::Item, index : Parser::Item)
         basetyp = (array.typ as Parser::DerivedType).base
         basesz = self.tysize basetyp
 
@@ -504,7 +505,7 @@ module Wit
       end
 
       # Generate code for a variable assignment.
-      def assign(tgt, expr)
+      def assign(tgt : Parser::Item, expr : Parser::Item)
         tgtsz = self.tysize tgt.typ
         szstr = self.getszstr tgtsz
         itemstr = self.itemstr expr

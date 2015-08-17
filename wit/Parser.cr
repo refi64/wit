@@ -18,7 +18,7 @@ module Wit
                     "Char" => BuiltinType.new(:Char) as Object,
                     "Int" => BuiltinType.new(:Int) as Object,
                     "Long" => BuiltinType.new(:Long) as Object}]
-        @scopes[0]["write_eln"] = BuiltinProc.new :WriteELn, nil, [] of Object
+        @scopes[0]["write_eln"] = BuiltinProc.new :WriteELn, nil, [] of Type
         #@scopes[0]["writeln"] = BuiltinProc.new :WriteLn, nil, []
         @scopes[0]["d2i"] = BuiltinProc.new :D2I, @scopes[0]["Byte"] as Type,
                                             [@scopes[0]["Char"] as Type]
@@ -30,17 +30,17 @@ module Wit
       end
 
       # Shows an error at the given token.
-      def error(msg, t=@token)
+      def error(msg : String, t=@token)
         raise ParseError.new t.lineno, t.colno, msg
       end
 
       # Throw an error if the current token is not the expected one.
-      def expect(t)
+      def expect(t : Scanner::TokenType)
         self.error "expected #{t}, got #{@token.type}" if @token.type != t
       end
 
       # Lookup an Object
-      def lookup(name)
+      def lookup(name : String)
         @scopes.reverse_each do |scope|
           if scope.has_key? name
             return scope[name]
@@ -49,21 +49,21 @@ module Wit
         nil
       end
 
-      def varlookup(varname)
+      def varlookup(varname : String)
         var = self.lookup varname
         self.error "undeclared identifier #{varname}" if !var
         self.error "#{varname} is not a variable" unless var.is_a? Variable
         var
       end
 
-      def typlookup(typname)
+      def typlookup(typname : String)
         typ = self.lookup typname
         self.error "undeclared type #{typname}" if !typ
         self.error "#{typname} is not a type" unless typ.is_a? Type
         typ
       end
 
-      def proclookup(procname)
+      def proclookup(procname : String)
         proc = self.lookup procname
         self.error "undeclared procedure #{procname}" if !proc
         self.error "#{procname} is not a procedure" unless proc.is_a? Proc
@@ -71,13 +71,13 @@ module Wit
       end
 
       # Check if the value is an integer (i.e. has no decimal places).
-      def check_i(val)
+      def check_i(val : Float64)
         self.error "cannot use floating point value in bitshift" \
             if val != val.to_i.to_f
       end
 
       # Evaluate the given expression at compile time.
-      def eval(lhs, rhs, op)
+      def eval(lhs : Float64, rhs : Float64, op : Scanner::Token)
         case op.type
         when Scanner::TokenType::Plus
           lhs + rhs
@@ -181,7 +181,7 @@ module Wit
       end
 
       # Parse a function call.
-      def parse_call(proc)
+      def parse_call(proc : Object)
         # paren is a variable that determines whether or not the call is
         # parenthesized.
         # Wit uses the Pascal style of being able to omit parenthesis when the
@@ -209,7 +209,7 @@ module Wit
       end
 
       # Parse an index expression..
-      def parse_index(base)
+      def parse_index(base : Item)
         self.error "#{base.typ.tystr} does not support indexing"\
           if !base.typ.indexes?
         self.next
@@ -291,7 +291,7 @@ module Wit
 
       # Parse an assignment, function call, or index. opt determines if the suffix
       # is optional.
-      def parse_suffix(base, opt)
+      def parse_suffix(base : Item, opt : Bool)
         first = true
         loop do
           base = case @token.type
