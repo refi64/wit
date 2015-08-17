@@ -4,9 +4,10 @@ abc123
 
 # comment
 
-var export a: Int*, b: Long, c: Byte, l: Int[2]
+var export a: Int*, b: Long, c: Byte, l: Int[2], z: Int[2][3]
 begin
     var g: Int, d: Int
+    a := z[1][1] as Int*
     a := l[0] as Int*
     a := a + (a as Int)
     b := 2l

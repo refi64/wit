@@ -108,31 +108,32 @@ module Wit
         typ = @token.value
         base = self.typlookup typ
         self.next
-        case @token.type
-        when Scanner::TokenType::Lbr
-          # An array type.
-          self.next
-          if @token.value == Scanner::TokenType::Rbr
+        loop do
+          case @token.type
+          when Scanner::TokenType::Lbr
+            # An array type.
             self.next
-            raise "VLAs not yet implemented"
-          else
-            size = self.parse_expr
-            res = if size.is_a? ConstItem
-              ArrayType.new base, size.value.to_i
+            if @token.value == Scanner::TokenType::Rbr
+              self.next
+              raise "VLAs not yet implemented"
             else
-              self.error "array size must be constant"
-            end
+              size = self.parse_expr
+              base = if size.is_a? ConstItem
+                ArrayType.new base, size.value.to_i
+              else
+                self.error "array size must be constant"
+              end
 
-            self.expect Scanner::TokenType::Rbr
+              self.expect Scanner::TokenType::Rbr
+              self.next
+            end
+          when Scanner::TokenType::Star
+            # A pointer type.
             self.next
-            res
+            base = PointerType.new base
+          else
+            return base
           end
-        when Scanner::TokenType::Star
-          # A pointer type.
-          self.next
-          PointerType.new base
-        else
-          base
         end
       end
 

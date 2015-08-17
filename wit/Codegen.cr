@@ -112,6 +112,16 @@ module Wit
         end
       end
 
+      # Get the d* size specifier for NASM data sections.
+      def getszspec(typ)
+        if typ.is_a? Parser::ArrayType
+          return self.getszspec typ.base
+        end
+        sz = self.tysize typ
+        raise "invalid type size: #{sz}" if !sz || !(sz & (sz-1))
+        "d#{"bwd q"[sz>>1]}"
+      end
+
       # Emit a line.
       def emit(line="")
         puts line
@@ -261,23 +271,19 @@ module Wit
           labels[name] = var.export ? name : "wit$global$#{name}"
           self.emittb "global #{labels[name]}" if var.export
         end
+
         # Generate the storage sections.
         globals.each do |name, var|
-          sz = self.tysize var.typ
+          typ = var.typ
+          sz = self.tysize typ
+          sp = self.getszspec typ
           var.info = X64VarInfo.new true, sz, labels[name], 0
-          sp = case sz
-          when 1
-            "db"
-          when 2
-            "dw"
-          when 4
-            "dd"
-          when 8
-            "dq"
+          if typ.is_a? Parser::ArrayType
+            self.emittb "#{labels[name]}:"
+            0.to(sz) {|i| self.emittb "  #{sp} 0"}
           else
-            raise "invalid type size: #{sz}"
+            self.emittb "#{labels[name]}: #{sp} 0"
           end
-          self.emittb "#{labels[name]}: #{sp} 0"
         end
       end
 
@@ -422,7 +428,8 @@ module Wit
         when Parser::MemItem
           reg = self.getreg
           # Clear out the top bits.
-          self.emittb "xor #{reg.regsz dstsz}, #{reg.regsz dstsz}" if dstsz > srcsz
+          self.emittb "xor #{reg.regsz dstsz}, #{reg.regsz dstsz}"\
+            if dstsz > srcsz
           self.emittb "mov #{reg.regsz dstsz}, #{self.itemstr item}"
           Parser::RegItem.new reg, typ
         when Parser::ConstItem
@@ -468,20 +475,9 @@ module Wit
       def index(array, index)
         basetyp = (array.typ as Parser::DerivedType).base
         basesz = self.tysize basetyp
-        abase = if array.is_a? Parser::RegItem
-          array.reg
-        else
-          if array.is_a? Parser::MemItem
-            array.base
-          else
-            # XXX: This will explode when const arrays are implemented.
-            raise "item #{array.class} given as array to index"
-          end
-        end
-        asz = self.tysize array.typ
 
         mul, offs = if index.is_a? Parser::ConstItem
-          {1, index.value.to_s}
+          {"1", (index.value * basesz).to_s}
         else
           if index.is_a? Parser::MemItem
             # Memory indexes should be moved to registers
@@ -490,10 +486,21 @@ module Wit
               #{self.itemstr index}"
             index = Parser::RegItem.new reg, index.typ
           end
-          {basesz, self.itemstr index}
+          {basesz.to_s, self.itemstr index}
         end
 
-        Parser::MemItem.new abase, mul, offs, basetyp
+        case array
+        when Parser::RegItem
+          Parser::MemItem.new array.reg, mul, offs, basetyp
+        when Parser::MemItem
+          # XXX: This generates *horrible* code.
+          regsz = self.getreg.regsz PTRSIZE
+          self.emittb "lea #{regsz}, #{self.itemstr array}"
+          Parser::MemItem.new regsz, mul, offs, basetyp
+        else
+          # XXX: This will explode when const arrays are implemented.
+          raise "item #{array.class} given as array to index"
+        end
       end
 
       # Generate code for a variable assignment.
