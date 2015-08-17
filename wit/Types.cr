@@ -1,5 +1,5 @@
 module Wit
-  module Parser # XXX: This should'nt be the Parser module!?
+  module Parser # XXX: This shouldn't be the Parser module!?
     # This represents an abstract identifier.
     class Object
     end
