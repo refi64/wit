@@ -5,7 +5,7 @@ import fbuild, sys
 @fbuild.db.caches
 def crystal(ctx, srcs: fbuild.db.SRCS, dst) -> fbuild.db.DST:
     dst = Path.addroot(dst, ctx.buildroot)
-    ctx.execute(['crystal', 'build', '-d', '-o', dst, srcs[0]], 'crystal',
+    ctx.execute(['crystal', 'build', '-o', dst, srcs[0]], 'crystal',
         '%s -> %s' % (' '.join(srcs), dst), color='yellow')
     return dst
 
