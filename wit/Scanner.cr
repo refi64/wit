@@ -139,12 +139,16 @@ module Wit
             if @look == '['
               # Multi-line comment
               while @look != '#'
-                self.getc while @look != ']'
+                while @look != ']'
+                  self.getc
+                end
                 self.getc
               end
             else
               # Read the rest of the line.
-              self.getc until @look == '\n'
+              until @look == '\n'
+                self.getc
+              end
             end
           else
             self.getc
