@@ -233,6 +233,7 @@ module Wit
 
       # The prolog of the main function.
       def mainprolog
+        @totals.push 0
         self.emit "_start:"
       end
 
@@ -252,6 +253,7 @@ module Wit
 
       # Procedure prolog.
       def prolog
+        @totals.push 0
       end
 
       # Procedure epilog.
@@ -297,7 +299,7 @@ module Wit
           var.info = X64VarInfo.new false, sz, "", total
         end
         # Save the total for use in the epilog.
-        @totals.push total
+        @totals[-1] = total
         return if total == 0 # Optimize.
         self.emittb "push rbp"
         self.emittb "mov rbp, rsp"
