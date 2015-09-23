@@ -17,5 +17,5 @@ require "./wit/Parser"
 begin
   Wit::Parser::Parser.new.parse_program
 rescue ex : Wit::ParseError
-  puts "#{ex.lineno}:#{ex.colno}: error: #{ex.to_s}"
+  STDERR.puts "#{ex.lineno}:#{ex.colno}: error: #{ex.to_s}"
 end
